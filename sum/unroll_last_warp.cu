@@ -43,78 +43,68 @@ __global__ void unroll_last_warp(int *g_in_data, int *g_out_data){
     }
 }
 
-// I hope to use this main file for all of the reduction files
+
 int main(){
-    int n = 1<<22; // Increase to about 4M elements
-    size_t bytes = n * sizeof(int);
+    int dataSize = 1 << 22;
+size_t byteSize = dataSize * sizeof(int);
 
-    // Host/CPU arrays
-    int *host_input_data = new int[n];
-    int *host_output_data = new int[(n + 255) / 256]; // to have sufficient size for output array
+int *hostInput = new int[dataSize];
+int *hostOutput = new int[(dataSize + 255) / 256];
 
-    // Device/GPU arrays
-    int *dev_input_data, *dev_output_data;
+int *deviceInput, *deviceOutput;
 
-    // Init data
-    srand(42); // Fixed seed
-    for (int i = 0; i < n; i++){
-        host_input_data[i] = rand() % 100;
-    }
+srand(42);
+for (int i = 0; i < dataSize; i++) {
+    hostInput[i] = rand() % 100;
+}
 
-    // Allocating memory on GPU for device arrays
-    cudaMalloc(&dev_input_data, bytes);
-    cudaMalloc(&dev_output_data, (n + 255) / 256 * sizeof(int));
+cudaMalloc(&deviceInput, byteSize);
+cudaMalloc(&deviceOutput, (dataSize + 255) / 256 * sizeof(int));
 
-    // Copying our data onto the device (GPU)
-    cudaMemcpy(dev_input_data, host_input_data, bytes, cudaMemcpyHostToDevice);
+cudaMemcpy(deviceInput, hostInput, byteSize, cudaMemcpyHostToDevice);
 
-    int blockSize = 256; // number of threads per block
+int threadCount = 256;
 
-    auto start = std::chrono::high_resolution_clock::now(); // start timer
+auto startTime = std::chrono::high_resolution_clock::now();
 
-    // Launch Kernel and Synchronize threads
-    int num_blocks = (n + (2 * blockSize) - 1) / (2 * blockSize);   // Modifying this to account for the fact that 1 thread accesses 2 elements
-    cudaError_t err;
-    unroll_last_warp<<<num_blocks, blockSize, blockSize * sizeof(int)>>>(dev_input_data, dev_output_data);
-    err = cudaGetLastError();
-    if (err != cudaSuccess) {
-        std::cerr << "CUDA error: " << cudaGetErrorString(err) << std::endl;
-    }
-    cudaDeviceSynchronize();
+int blockCount = (dataSize + (2 * threadCount) - 1) / (2 * threadCount);
+cudaError_t error;
+unroll_last_warp<<<blockCount, threadCount, threadCount * sizeof(int)>>>(deviceInput, deviceOutput);
+error = cudaGetLastError();
+if (error != cudaSuccess) {
+    std::cerr << "CUDA error: " << cudaGetErrorString(error) << std::endl;
+}
+cudaDeviceSynchronize();
 
-    auto stop = std::chrono::high_resolution_clock::now();
-    auto duration = std::chrono::duration_cast<std::chrono::microseconds>(stop - start).count() / 1000.0; // duration in milliseconds with three decimal points
+auto endTime = std::chrono::high_resolution_clock::now();
+double elapsedTime = std::chrono::duration_cast<std::chrono::microseconds>(endTime - startTime).count() / 1000.0;
 
-    // Copying data back to the host (CPU)
-    cudaMemcpy(host_output_data, dev_output_data, (n + 255) / 256 * sizeof(int), cudaMemcpyDeviceToHost);
+cudaMemcpy(hostOutput, deviceOutput, (dataSize + 255) / 256 * sizeof(int), cudaMemcpyDeviceToHost);
 
-    // Final reduction on the host
-    int finalResult = host_output_data[0];
-    for (int i = 1; i < (n + 255) / 256; ++i) {
-        finalResult += host_output_data[i];
-    }
+int sumGPU = hostOutput[0];
+for (int i = 1; i < (dataSize + 255) / 256; ++i) {
+    sumGPU += hostOutput[i];
+}
 
-    // CPU Summation for verification
-    int cpuResult = std::accumulate(host_input_data, host_input_data + n, 0);
-    if (cpuResult == finalResult) {
-        std::cout << "\033[32m"; // Set text color to green
-        std::cout << "Verification successful: GPU result matches CPU result.\n";
-        std::cout << "GPU Result: " << finalResult << ", CPU Result: " << cpuResult << std::endl;
-    } else {
-        std::cout << "\033[31m"; // Set text color to red
-        std::cout << "Verification failed: GPU result (" << finalResult << ") does not match CPU result (" << cpuResult << ").\n";
-        std::cout << "GPU Result: " << finalResult << ", CPU Result: " << cpuResult << std::endl;
-    }
-    std::cout << "\033[0m"; // Reset text color to default
+int sumCPU = std::accumulate(hostInput, hostInput + dataSize, 0);
+if (sumCPU == sumGPU) {
+    std::cout << "\033[32m";
+    std::cout << "Verification successful: GPU result matches CPU result.\n";
+    std::cout << "GPU Result: " << sumGPU << ", CPU Result: " << sumCPU << std::endl;
+} else {
+    std::cout << "\033[31m";
+    std::cout << "Verification failed: GPU result (" << sumGPU << ") does not match CPU result (" << sumCPU << ").\n";
+    std::cout << "GPU Result: " << sumGPU << ", CPU Result: " << sumCPU << std::endl;
+}
+std::cout << "\033[0m";
 
-    double bandwidth = (duration > 0) ? (bytes / duration / 1e6) : 0; // computed in GB/s, handling zero duration
-    std::cout << "Reduced result: " << finalResult << std::endl;
-    std::cout << "Time elapsed: " << duration << " ms" << std::endl;
-    std::cout << "Effective bandwidth: " << bandwidth << " GB/s" << std::endl;
+double memoryBandwidth = (elapsedTime > 0) ? (byteSize / elapsedTime / 1e6) : 0;
+std::cout << "Reduced result: " << sumGPU << std::endl;
+std::cout << "Time elapsed: " << elapsedTime << " ms" << std::endl;
+std::cout << "Effective bandwidth: " << memoryBandwidth << " GB/s" << std::endl;
 
-    // Freeing memory
-    cudaFree(dev_input_data);
-    cudaFree(dev_output_data);
-    delete[] host_input_data;
-    delete[] host_output_data;
+cudaFree(deviceInput);
+cudaFree(deviceOutput);
+delete[] hostInput;
+delete[] hostOutput;
 }

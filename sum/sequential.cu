@@ -3,7 +3,7 @@
 #include <chrono>
 #include <numeric> 
 
-// REDUCTION 2 – Sequence Addressing
+
 __global__ void sequential(int *g_in_data, int *g_out_data){
     extern __shared__ int sdata[];  // stored in the shared memory
 

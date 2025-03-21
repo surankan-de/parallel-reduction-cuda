@@ -3,7 +3,7 @@
 #include <chrono>
 #include <numeric> 
 
-// Adding this function to help with unrolling
+
 __device__ void unroll_last(volatile int* sdata, int tid){
   // the aim is to save all the warps from useless work 
   sdata[tid] += sdata[tid + 32];
@@ -14,7 +14,7 @@ __device__ void unroll_last(volatile int* sdata, int tid){
   sdata[tid] += sdata[tid + 1];
 }
 
-// REDUCTION 4 – Unroll Last Warp
+
 __global__ void unroll_last_warp(int *g_in_data, int *g_out_data){
     extern __shared__ int sdata[];  // stored in the shared memory
 

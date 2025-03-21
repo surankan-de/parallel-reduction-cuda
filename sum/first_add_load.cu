@@ -3,7 +3,7 @@
 #include <chrono>
 #include <numeric> 
 
-// REDUCTION 3 – First Add During Load
+//load first then start
 __global__ void first_add_load(int *g_in_data, int *g_out_data){
     extern __shared__ int sdata[];  // stored in the shared memory
 

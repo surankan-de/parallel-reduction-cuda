@@ -25,7 +25,7 @@ __global__ void interleaved_addressing_reduction(int *g_in_data, int *g_out_data
     }
 }
 
-// I hope to use this main file for all of the reduction files
+
 int main(){
     int dataSize = 1 << 22;
 size_t byteSize = dataSize * sizeof(int);

@@ -3,7 +3,7 @@
 #include <chrono>
 #include <numeric> 
 
-// Adding this function to help with unrolling and adding the Template
+//full unroll
 template <unsigned int blockSize>
 __device__ void unroll_last(volatile int* sdata, int tid){
     if(blockSize >= 64) sdata[tid] += sdata[tid + 32];
@@ -14,7 +14,7 @@ __device__ void unroll_last(volatile int* sdata, int tid){
     if(blockSize >= 2) sdata[tid] += sdata[tid + 1];
 }
 
-// REDUCTION 5 – Completely Unroll
+
 template <unsigned int blockSize>
 __global__ void complete_unroll(int *g_in_data, int *g_out_data){
     extern __shared__ int sdata[];  // stored in the shared memory
@@ -43,7 +43,7 @@ __global__ void complete_unroll(int *g_in_data, int *g_out_data){
     }
 }
 
-// I hope to use this main file for all of the reduction files
+
 int main(){
     int dataSize = 1 << 22;
 size_t byteSize = dataSize * sizeof(int);
